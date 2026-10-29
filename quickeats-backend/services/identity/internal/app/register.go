@@ -87,15 +87,15 @@ func verifyMember(org *domain.Organisation, req RegisterRequest) error {
 	return nil
 }
 
-// newAccount runs the checks every sign-up shares (valid unused email, password
-// length) and builds the user with a hashed password.
+// newAccount runs the checks every sign-up shares (valid unused email, strong
+// password) and builds the user with a hashed password.
 func newAccount(ctx context.Context, userRepo port.UserRepository, email, password, displayName, orgID string, role domain.Role) (*domain.User, error) {
 	email = strings.TrimSpace(email)
 	if _, err := domain.EmailDomain(email); err != nil {
 		return nil, domain.ErrInvalidEmail
 	}
-	if len(password) < 6 {
-		return nil, domain.ErrWeakPassword
+	if err := domain.ValidatePassword(password, email, displayName); err != nil {
+		return nil, err
 	}
 
 	exists, err := userRepo.ExistsByEmail(ctx, email)

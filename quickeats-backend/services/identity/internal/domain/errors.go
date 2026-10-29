@@ -12,7 +12,7 @@ var (
 	ErrOrgSlugTaken       = errors.New("organisation code is already in use")
 	ErrVerificationFailed = errors.New("organisation verification failed")
 	ErrInvalidEmail       = errors.New("invalid email address")
-	ErrWeakPassword       = errors.New("password must be at least 6 characters")
+	ErrWeakPassword       = errors.New("password is too weak")
 	ErrWrongPassword      = errors.New("current password is incorrect")
 	ErrNoShop             = errors.New("this account has no shop")
 	ErrNoOrganisations    = errors.New("add at least one organisation code")

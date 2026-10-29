@@ -5,6 +5,8 @@ import 'package:quickeats_shop/services/auth_service.dart';
 import 'package:quickeats_shop/services/order_service.dart';
 import 'package:quickeats_shop/services/menu_service.dart';
 import 'package:quickeats_shop/services/account_service.dart';
+import 'package:quickeats_shop/services/earnings_service.dart';
+import 'package:quickeats_shop/viewmodels/earnings_viewmodel.dart';
 import 'package:quickeats_shop/viewmodels/settings_viewmodel.dart';
 import 'package:quickeats_shop/viewmodels/auth_viewmodel.dart';
 import 'package:quickeats_shop/viewmodels/order_queue_viewmodel.dart';
@@ -30,6 +32,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<OrderService>(OrderService(apiClient: getIt<ApiClient>()));
   getIt.registerSingleton<MenuService>(MenuService(apiClient: getIt<ApiClient>()));
   getIt.registerSingleton<AccountService>(AccountService(apiClient: getIt<ApiClient>()));
+  getIt.registerSingleton<EarningsService>(EarningsService(apiClient: getIt<ApiClient>()));
 
   // ── ViewModels (factories — new instance each time, disposed with the widget) ──
   getIt.registerFactory<AuthViewModel>(() => AuthViewModel(authService: getIt<AuthService>()));
@@ -42,6 +45,11 @@ Future<void> setupServiceLocator() async {
 
   getIt.registerFactory<MenuViewModel>(() => MenuViewModel(
     menuService: getIt<MenuService>(),
+    authService: getIt<AuthService>(),
+  ));
+
+  getIt.registerFactory<EarningsViewModel>(() => EarningsViewModel(
+    earningsService: getIt<EarningsService>(),
     authService: getIt<AuthService>(),
   ));
 

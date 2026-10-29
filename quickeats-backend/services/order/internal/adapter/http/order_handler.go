@@ -4,6 +4,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/quickeats/pkg/httputil"
@@ -17,12 +19,13 @@ type OrderHandler struct {
 	placeOrderUC  *app.PlaceOrderUseCase
 	orderStatusUC *app.OrderStatusUseCase
 	orderRepo     port.OrderRepository
+	earningsUC    *app.EarningsUseCase
 	catalog       port.CatalogClient
 	payment       port.PaymentClient
 }
 
-func NewOrderHandler(placeOrderUC *app.PlaceOrderUseCase, orderStatusUC *app.OrderStatusUseCase, orderRepo port.OrderRepository, catalog port.CatalogClient, payment port.PaymentClient) *OrderHandler {
-	return &OrderHandler{placeOrderUC: placeOrderUC, orderStatusUC: orderStatusUC, orderRepo: orderRepo, catalog: catalog, payment: payment}
+func NewOrderHandler(placeOrderUC *app.PlaceOrderUseCase, orderStatusUC *app.OrderStatusUseCase, earningsUC *app.EarningsUseCase, orderRepo port.OrderRepository, catalog port.CatalogClient, payment port.PaymentClient) *OrderHandler {
+	return &OrderHandler{placeOrderUC: placeOrderUC, orderStatusUC: orderStatusUC, earningsUC: earningsUC, orderRepo: orderRepo, catalog: catalog, payment: payment}
 }
 
 type PlaceOrderHTTPRequest struct {
@@ -240,6 +243,41 @@ func (h *OrderHandler) RejectOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	order.RejectReason = req.Reason
 	httputil.RespondJSON(w, http.StatusOK, order)
+}
+
+// ShopEarnings returns a day's earnings for the shop: ?date=2026-10-29&tzOffset=330
+// (minutes ahead of UTC, so the day is the shop's local day). Both are optional;
+// the default is today in UTC. Staff only see their own shop.
+func (h *OrderHandler) ShopEarnings(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	shopID := chi.URLParam(r, "shopId")
+	if claims.Role != "admin" && claims.ShopID != shopID {
+		httputil.RespondError(w, httputil.ErrNotFound("shop"))
+		return
+	}
+
+	offset := 0
+	if v := r.URL.Query().Get("tzOffset"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			httputil.RespondError(w, httputil.ErrValidation("tzOffset must be a whole number of minutes", map[string]string{"field": "tzOffset"}))
+			return
+		}
+		offset = n
+	}
+	day, err := app.ParseEarningsDay(r.URL.Query().Get("date"), offset, time.Now())
+	if err != nil {
+		httputil.RespondError(w, httputil.ErrValidation(err.Error(), nil))
+		return
+	}
+
+	earnings, err := h.earningsUC.Get(r.Context(), shopID, day)
+	if err != nil {
+		slog.Error("shop earnings failed", "shop_id", shopID, "error", err)
+		httputil.RespondError(w, httputil.ErrInternal("could not load earnings"))
+		return
+	}
+	httputil.RespondJSON(w, http.StatusOK, earnings)
 }
 
 // respondStatusError reports a lost race (another request changed the order first)

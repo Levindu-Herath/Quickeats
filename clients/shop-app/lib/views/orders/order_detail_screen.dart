@@ -167,7 +167,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 }
 
-/// Asks for a rejection reason; pops with the trimmed reason, or null when cancelled.
+/// Asks for a rejection reason: one of the common reasons, or "Other", which opens
+/// [_OtherReasonDialog] to type one. Pops with the reason, or null when cancelled.
 /// It pops with its own context: the detail screen's context belongs to the shell's
 /// nested navigator, so popping that would close the screen and leave the dialog open.
 class _RejectDialog extends StatefulWidget {
@@ -177,6 +178,68 @@ class _RejectDialog extends StatefulWidget {
 }
 
 class _RejectDialogState extends State<_RejectDialog> {
+  static const _commonReasons = [
+    'Item is out of stock',
+    'Shop is too busy right now',
+    'Shop is closing soon',
+  ];
+
+  String? _selected;
+
+  Future<void> _other() async {
+    final reason = await showDialog<String>(context: context, builder: (_) => const _OtherReasonDialog());
+    if (reason != null && mounted) Navigator.pop(context, reason);
+  }
+
+  Widget _option(String label, {required bool selected, required VoidCallback onTap, Widget? trailing}) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        color: selected ? AppColors.error : null,
+      ),
+      title: Text(label),
+      trailing: trailing,
+      onTap: onTap,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Reject Order'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Why are you rejecting this order?'),
+          const SizedBox(height: 8),
+          for (final reason in _commonReasons)
+            _option(reason, selected: _selected == reason, onTap: () => setState(() => _selected = reason)),
+          _option('Other', selected: false, onTap: _other, trailing: const Icon(Icons.edit_outlined, size: 20)),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: _selected == null ? null : () => Navigator.pop(context, _selected),
+          style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+          child: const Text('Reject'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Asks for a rejection reason in the shop's own words; pops with the trimmed reason,
+/// or null when cancelled (back to the list of common reasons).
+class _OtherReasonDialog extends StatefulWidget {
+  const _OtherReasonDialog();
+  @override
+  State<_OtherReasonDialog> createState() => _OtherReasonDialogState();
+}
+
+class _OtherReasonDialogState extends State<_OtherReasonDialog> {
   final _reason = TextEditingController();
 
   @override
@@ -189,7 +252,7 @@ class _RejectDialogState extends State<_RejectDialog> {
   Widget build(BuildContext context) {
     final reason = _reason.text.trim();
     return AlertDialog(
-      title: const Text('Reject Order'),
+      title: const Text('Other reason'),
       content: TextField(
         controller: _reason,
         autofocus: true,

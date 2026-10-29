@@ -36,10 +36,10 @@ services:
       - name: order-routes
         paths: ["/api/v1/orders"]
         strip_path: false
-      # Shop order queue lives in the order service, but shares the /api/v1/shops
+      # Shop order queue and earnings live in the order service, but share the /api/v1/shops
       # prefix with catalog; the regex route takes precedence over the prefix one.
       - name: order-shop-orders
-        paths: ["~/api/v1/shops/[^/]+/orders$"]
+        paths: ["~/api/v1/shops/[^/]+/(orders|earnings)$"]
         regex_priority: 10
         strip_path: false
 

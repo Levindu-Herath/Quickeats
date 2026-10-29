@@ -15,7 +15,7 @@ It is served by Kong at **`/admin`**, next to the API:
 - Production: `http://<server>/admin`
 
 Sign in with the admin account the identity service creates on start-up from
-`ADMIN_EMAIL` / `ADMIN_PASSWORD` (local defaults: `admin@quickeats.dev` / `admin12345`).
+`ADMIN_EMAIL` / `ADMIN_PASSWORD` (local defaults: `admin@quickeats.dev` / `Canteen#Dev2026`).
 
 ## Developing
 

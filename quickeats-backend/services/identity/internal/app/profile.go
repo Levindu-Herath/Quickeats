@@ -94,8 +94,11 @@ func (uc *ProfileUseCase) ChangePassword(ctx context.Context, userID, current, n
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(current)) != nil {
 		return domain.ErrWrongPassword
 	}
-	if len(next) < 6 {
-		return domain.ErrWeakPassword
+	if err := domain.ValidatePassword(next, user.Email, user.DisplayName); err != nil {
+		return err
+	}
+	if next == current {
+		return &domain.WeakPasswordError{Reason: "new password must be different from the current one"}
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(next), bcrypt.DefaultCost)
 	if err != nil {

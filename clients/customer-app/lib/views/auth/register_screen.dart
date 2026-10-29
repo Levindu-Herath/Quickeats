@@ -7,6 +7,7 @@ import 'package:quickeats_customer/core/di/service_locator.dart';
 import 'package:quickeats_customer/models/organisation.dart';
 import 'package:quickeats_customer/services/account_service.dart';
 import 'package:quickeats_customer/viewmodels/auth_viewmodel.dart';
+import 'package:quickeats_customer/views/widgets/password_policy.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -102,10 +103,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 hint: _org != null ? 'name${_org!.emailDomains.isEmpty ? '' : '@${_org!.emailDomains.first.replaceFirst('*.', 'dept.')}'}' : null)),
             const SizedBox(height: 16),
             TextFormField(controller: _password, obscureText: !_showPassword,
-              validator: (v) => (v ?? '').length < 6 ? 'At least 6 characters' : null,
+              onChanged: (_) => setState(() {}),
+              validator: (v) => PasswordPolicy.validate(v ?? '', email: _email.text, name: _name.text),
               decoration: _decoration('Password', Icons.lock_outline,
                 suffix: IconButton(icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
                   onPressed: () => setState(() => _showPassword = !_showPassword)))),
+            PasswordRequirements(password: _password.text),
             if (vm.error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(vm.error!, style: const TextStyle(color: AppColors.error, fontSize: 13))),
             const SizedBox(height: 24),
             SizedBox(height: 50, child: FilledButton(

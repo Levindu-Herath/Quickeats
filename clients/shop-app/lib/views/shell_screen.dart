@@ -18,6 +18,7 @@ class ShellScreen extends StatelessWidget {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.receipt_long), selectedIcon: Icon(Icons.receipt_long, color: AppColors.primary), label: 'Orders'),
           NavigationDestination(icon: Icon(Icons.restaurant_menu), selectedIcon: Icon(Icons.restaurant_menu, color: AppColors.primary), label: 'Menu'),
+          NavigationDestination(icon: Icon(Icons.payments_outlined), selectedIcon: Icon(Icons.payments, color: AppColors.primary), label: 'Earnings'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings, color: AppColors.primary), label: 'Settings'),
         ],
       ),
@@ -27,7 +28,8 @@ class ShellScreen extends StatelessWidget {
   int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/menu')) return 1;
-    if (location.startsWith('/settings')) return 2;
+    if (location.startsWith('/earnings')) return 2;
+    if (location.startsWith('/settings')) return 3;
     return 0;
   }
 
@@ -35,7 +37,8 @@ class ShellScreen extends StatelessWidget {
     switch (index) {
       case 0: context.go('/orders'); break;
       case 1: context.go('/menu'); break;
-      case 2: context.go('/settings'); break;
+      case 2: context.go('/earnings'); break;
+      case 3: context.go('/settings'); break;
     }
   }
 }

@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:quickeats_customer/core/constants/api_constants.dart';
 import 'package:quickeats_customer/core/constants/app_colors.dart';
 import 'package:quickeats_customer/viewmodels/auth_viewmodel.dart';
 import 'package:quickeats_customer/viewmodels/cart_viewmodel.dart';
 import 'package:quickeats_customer/viewmodels/settings_viewmodel.dart';
+import 'package:quickeats_customer/views/widgets/password_policy.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -28,7 +28,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _changePassword(SettingsViewModel vm) async {
-    final ok = await showDialog<bool>(context: context, builder: (_) => _PasswordDialog(onSubmit: vm.changePassword));
+    final ok = await showDialog<bool>(context: context, builder: (_) => _PasswordDialog(
+      onSubmit: vm.changePassword, email: vm.profile?.email ?? '', name: vm.profile?.displayName ?? ''));
     if (ok == true && mounted) _toast('Password changed');
   }
 
@@ -108,11 +109,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           )),
 
           const _Section('About'),
-          const _Card(padding: EdgeInsets.zero, child: Column(children: [
-            ListTile(leading: Icon(Icons.info_outline), title: Text('QuickEats'), subtitle: Text('Version 1.0.0')),
-            Divider(height: 1),
-            ListTile(leading: Icon(Icons.dns_outlined), title: Text('Server'), subtitle: Text(ApiConstants.baseUrl)),
-          ])),
+          const _Card(padding: EdgeInsets.zero,
+            child: ListTile(leading: Icon(Icons.info_outline), title: Text('QuickEats'), subtitle: Text('Version 1.0.0'))),
 
           const SizedBox(height: 20),
           OutlinedButton.icon(
@@ -173,7 +171,8 @@ class _TextDialogState extends State<_TextDialog> {
 /// Current + new + confirm password. Calls [onSubmit] and stays open to show server errors.
 class _PasswordDialog extends StatefulWidget {
   final Future<String?> Function(String current, String next) onSubmit;
-  const _PasswordDialog({required this.onSubmit});
+  final String email, name; // the account's own; the new password must not contain them
+  const _PasswordDialog({required this.onSubmit, required this.email, required this.name});
   @override State<_PasswordDialog> createState() => _PasswordDialogState();
 }
 
@@ -183,6 +182,12 @@ class _PasswordDialogState extends State<_PasswordDialog> {
   final _visible = [false, false, false]; // current, new, confirm
   bool _busy = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _next.addListener(() => setState(() {})); // keeps the checklist up to date
+  }
 
   Widget _passwordField(int i, TextEditingController c, String label, String? Function(String?) validator) => TextFormField(
     controller: c,
@@ -206,9 +211,14 @@ class _PasswordDialogState extends State<_PasswordDialog> {
 
   @override Widget build(BuildContext context) => AlertDialog(
     title: const Text('Change password'),
+    scrollable: true,
     content: Form(key: _form, child: Column(mainAxisSize: MainAxisSize.min, children: [
       _passwordField(0, _current, 'Current password', (v) => (v ?? '').isEmpty ? 'Required' : null),
-      _passwordField(1, _next, 'New password', (v) => (v ?? '').length < 6 ? 'At least 6 characters' : null),
+      _passwordField(1, _next, 'New password', (v) {
+        if ((v ?? '') == _current.text && _current.text.isNotEmpty) return 'Must be different from the current password';
+        return PasswordPolicy.validate(v ?? '', email: widget.email, name: widget.name);
+      }),
+      PasswordRequirements(password: _next.text),
       _passwordField(2, _confirm, 'Confirm new password', (v) => v != _next.text ? 'Passwords don\'t match' : null),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 12),
         child: Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13))),
