@@ -48,6 +48,11 @@ func NewRouter(authHandler *AuthHandler, orgHandler *OrgHandler, profileHandler 
 		r.Post("/organisations", orgHandler.Create)
 		r.Get("/organisations", orgHandler.List)
 		r.Put("/organisations/{id}", orgHandler.Update)
+		r.Delete("/organisations/{id}", orgHandler.Delete)
+		r.Get("/organisations/{id}/employees", orgHandler.ListEmployees)
+		r.Post("/organisations/{id}/employees", orgHandler.ImportEmployees)
+		r.Delete("/organisations/{id}/employees", orgHandler.ClearEmployees)
+		r.Delete("/organisations/{id}/employees/{email}", orgHandler.RemoveEmployee)
 	})
 
 	// Internal service-to-service validation

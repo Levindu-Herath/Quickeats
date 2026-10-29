@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/quickeats/services/identity/internal/domain"
 	"github.com/quickeats/services/identity/internal/port"
 	"golang.org/x/crypto/bcrypt"
@@ -21,16 +22,19 @@ type OrgInput struct {
 // AdminOrg is an organisation as listed on the admin dashboard.
 type AdminOrg struct {
 	OrgSummary
-	MemberCount int    `json:"memberCount"`
-	CreatedAt   string `json:"createdAt"`
+	MemberCount int `json:"memberCount"`
+	// EmployeeCount is the size of the employee list; 0 means customers are checked by domain only.
+	EmployeeCount int    `json:"employeeCount"`
+	CreatedAt     string `json:"createdAt"`
 }
 
 type OrganisationsUseCase struct {
-	orgRepo port.OrganisationRepository
+	orgRepo   port.OrganisationRepository
+	employees port.EmployeeListRepository
 }
 
-func NewOrganisationsUseCase(orgRepo port.OrganisationRepository) *OrganisationsUseCase {
-	return &OrganisationsUseCase{orgRepo: orgRepo}
+func NewOrganisationsUseCase(orgRepo port.OrganisationRepository, employees port.EmployeeListRepository) *OrganisationsUseCase {
+	return &OrganisationsUseCase{orgRepo: orgRepo, employees: employees}
 }
 
 func validateOrgInput(in OrgInput) (OrgInput, error) {
@@ -94,15 +98,36 @@ func (uc *OrganisationsUseCase) List(ctx context.Context) ([]AdminOrg, error) {
 	if err != nil {
 		return nil, err
 	}
+	listed, err := uc.employees.Counts(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]AdminOrg, 0, len(orgs))
 	for _, o := range orgs {
 		out = append(out, AdminOrg{
-			OrgSummary:  summarize(o),
-			MemberCount: counts[o.ID],
-			CreatedAt:   o.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			OrgSummary:    summarize(o),
+			MemberCount:   counts[o.ID],
+			EmployeeCount: listed[o.ID],
+			CreatedAt:     o.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
 	return out, nil
+}
+
+// Delete removes an organisation that nobody has registered with yet; its employee
+// list goes with it. Shops that also serve it simply stop listing it.
+func (uc *OrganisationsUseCase) Delete(ctx context.Context, id string) error {
+	if _, err := uuid.Parse(id); err != nil {
+		return domain.ErrOrgNotFound
+	}
+	counts, err := uc.orgRepo.MemberCounts(ctx)
+	if err != nil {
+		return err
+	}
+	if n := counts[id]; n > 0 {
+		return &domain.OrgInUseError{Accounts: n}
+	}
+	return uc.orgRepo.Delete(ctx, id)
 }
 
 // Lookup is the public check the apps use while a user types an organisation code.

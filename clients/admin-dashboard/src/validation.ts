@@ -28,6 +28,19 @@ export function suggestSlug(name: string): string {
     .replace(/-+$/, '');
 }
 
+/**
+ * Pulls email addresses out of an uploaded CSV or text file. Any column layout works:
+ * every comma, semicolon, tab, quote or line break separates values, and only values
+ * with an "@" are kept (so headers like "name,email" drop out). The server does the
+ * real validation against the organisation's domains.
+ */
+export function extractEmails(text: string): string[] {
+  return text
+    .replace(/^﻿/, '')
+    .split(/[\s,;"'<>]+/)
+    .filter((v) => v.includes('@'));
+}
+
 /** An example address for the preview line: "*.ruh.ac.lk" -> "name@eng.ruh.ac.lk". */
 export function exampleEmail(domain: string): string {
   return 'name@' + (domain.startsWith('*.') ? 'dept.' + domain.slice(2) : domain);

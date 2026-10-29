@@ -2,6 +2,7 @@ package http
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -14,6 +15,8 @@ import (
 func respondError(w http.ResponseWriter, err error) {
 	var notAllowed *domain.EmailNotAllowedError
 	var unknownOrg *domain.UnknownOrgError
+	var notListed *domain.NotOnEmployeeListError
+	var inUse *domain.OrgInUseError
 
 	switch {
 	case errors.As(err, &notAllowed):
@@ -21,6 +24,16 @@ func respondError(w http.ResponseWriter, err error) {
 			Code: "EMAIL_NOT_ALLOWED", Message: notAllowed.Error(), Status: http.StatusUnprocessableEntity,
 			Details: map[string]interface{}{"emailDomains": notAllowed.Domains},
 		})
+	case errors.As(err, &notListed):
+		httputil.RespondError(w, &httputil.AppError{
+			Code: "EMAIL_NOT_ON_EMPLOYEE_LIST", Message: notListed.Error(), Status: http.StatusUnprocessableEntity,
+		})
+	case errors.As(err, &inUse):
+		httputil.RespondError(w, httputil.ErrConflict(inUse.Error()))
+	case errors.Is(err, domain.ErrEmployeeNotFound):
+		httputil.RespondError(w, httputil.ErrNotFound("employee email"))
+	case errors.Is(err, domain.ErrTooManyEmails):
+		httputil.RespondError(w, httputil.ErrValidation(fmt.Sprintf("import at most %d emails at a time", domain.MaxEmployeeImport), nil))
 	case errors.As(err, &unknownOrg):
 		httputil.RespondError(w, &httputil.AppError{Code: "ORGANISATION_NOT_FOUND", Message: unknownOrg.Error(), Status: http.StatusNotFound})
 	case errors.Is(err, domain.ErrOrgNotFound):

@@ -6,7 +6,28 @@ export interface Organisation {
   slug: string;
   emailDomains: string[];
   memberCount?: number;
+  /** Size of the employee list; 0 means customers are checked by domain only. */
+  employeeCount?: number;
   createdAt?: string;
+}
+
+export interface EmployeeEmail {
+  email: string;
+  addedAt: string;
+  /** A customer account exists for this email. */
+  registered: boolean;
+}
+
+export interface RejectedEmail {
+  value: string;
+  reason: string;
+}
+
+export interface ImportResult {
+  added: number;
+  removed: number;
+  total: number;
+  rejected: RejectedEmail[];
 }
 
 export interface OrgInput {
@@ -21,7 +42,7 @@ interface Tokens {
 }
 
 export class ApiError extends Error {
-  constructor(message: string, public status: number) {
+  constructor(message: string, public status: number, public details?: Record<string, unknown>) {
     super(message);
   }
 }
@@ -69,7 +90,7 @@ async function parse<T>(resp: Response): Promise<T> {
   const body = await resp.json().catch(() => null);
   if (!resp.ok) {
     const message = body?.error?.message ?? `Request failed (${resp.status})`;
-    throw new ApiError(message.charAt(0).toUpperCase() + message.slice(1), resp.status);
+    throw new ApiError(message.charAt(0).toUpperCase() + message.slice(1), resp.status, body?.error?.details);
   }
   return body?.data as T;
 }
@@ -129,5 +150,17 @@ export const api = {
   listOrganisations: () => request<Organisation[]>('GET', '/api/v1/admin/organisations'),
   createOrganisation: (input: OrgInput) => request<Organisation>('POST', '/api/v1/admin/organisations', input),
   updateOrganisation: (id: string, input: OrgInput) =>
-    request<Organisation>('PUT', `/api/v1/admin/organisations/${encodeURIComponent(id)}`, input),
+    request<Organisation>('PUT', orgPath(id), input),
+  deleteOrganisation: (id: string) => request<void>('DELETE', orgPath(id)),
+
+  listEmployees: (orgId: string) => request<EmployeeEmail[]>('GET', `${orgPath(orgId)}/employees`),
+  importEmployees: (orgId: string, emails: string[], mode: 'add' | 'replace') =>
+    request<ImportResult>('POST', `${orgPath(orgId)}/employees`, { emails, mode }),
+  removeEmployee: (orgId: string, email: string) =>
+    request<void>('DELETE', `${orgPath(orgId)}/employees/${encodeURIComponent(email)}`),
+  clearEmployees: (orgId: string) => request<{ removed: number }>('DELETE', `${orgPath(orgId)}/employees`),
 };
+
+function orgPath(id: string) {
+  return `/api/v1/admin/organisations/${encodeURIComponent(id)}`;
+}

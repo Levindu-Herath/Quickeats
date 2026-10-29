@@ -37,6 +37,13 @@ type OrgRequest struct {
 	EmailDomains []string `json:"emailDomains"`
 }
 
+// ImportEmployeesRequest uploads an organisation's employee emails. Mode "add" keeps
+// the current list; "replace" makes the list exactly these emails.
+type ImportEmployeesRequest struct {
+	Emails []string `json:"emails"`
+	Mode   string   `json:"mode"`
+}
+
 type UpdateProfileRequest struct {
 	DisplayName string `json:"displayName"`
 }

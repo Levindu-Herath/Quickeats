@@ -54,6 +54,27 @@ func (r *OrgRepo) Update(ctx context.Context, org *domain.Organisation) error {
 	return nil
 }
 
+// Delete removes an organisation and its employee list. Accounts still pointing at it
+// make the delete fail, which is reported as OrgInUseError.
+func (r *OrgRepo) Delete(ctx context.Context, id string) error {
+	tag, err := r.db.Exec(ctx, `DELETE FROM organisations WHERE id = $1`, id)
+	if isForeignKeyViolation(err) {
+		return &domain.OrgInUseError{}
+	}
+	if err != nil {
+		return fmt.Errorf("delete organisation: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrOrgNotFound
+	}
+	return nil
+}
+
+func isForeignKeyViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23503"
+}
+
 func (r *OrgRepo) MemberCounts(ctx context.Context) (map[string]int, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT organisation_id::text, count(*) FROM users WHERE organisation_id IS NOT NULL GROUP BY organisation_id`)
