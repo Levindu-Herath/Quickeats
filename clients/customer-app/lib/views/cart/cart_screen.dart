@@ -6,11 +6,25 @@ import 'package:quickeats_customer/viewmodels/cart_viewmodel.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
+
+  Future<void> _confirmClear(BuildContext context, CartViewModel cart) async {
+    final count = cart.itemCount;
+    final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
+      title: const Text('Clear cart?'),
+      content: Text('This removes ${count == 1 ? 'the item' : 'all $count items'}'
+        '${cart.shopName != null ? ' from ${cart.shopName}' : ''} from your cart.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                FilledButton(onPressed: () => Navigator.pop(c, true),
+                  style: FilledButton.styleFrom(backgroundColor: AppColors.error), child: const Text('Clear'))],
+    ));
+    if (ok == true) cart.clear();
+  }
+
   @override Widget build(BuildContext context) {
     return Consumer<CartViewModel>(builder: (_, cart, __) {
       return Scaffold(
         appBar: AppBar(title: const Text('Cart', style: TextStyle(fontWeight: FontWeight.w700)), backgroundColor: AppColors.white, elevation: 0,
-          actions: [if (!cart.isEmpty) TextButton(onPressed: cart.clear, child: const Text('Clear', style: TextStyle(color: AppColors.error)))]),
+          actions: [if (!cart.isEmpty) TextButton(onPressed: () => _confirmClear(context, cart), child: const Text('Clear', style: TextStyle(color: AppColors.error)))]),
         body: cart.isEmpty
           ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               const Icon(Icons.shopping_cart_outlined, size: 64, color: AppColors.textMuted), const SizedBox(height: 12),

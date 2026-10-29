@@ -206,7 +206,7 @@ services:
       PORT: "8081"
       # Admin dashboard login, created on first start (local dev only defaults)
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@quickeats.dev}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Canteen#Dev2026}
     depends_on:
       identity-seed:
         condition: service_completed_successfully

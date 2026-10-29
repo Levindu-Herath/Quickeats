@@ -5,6 +5,7 @@ import 'package:quickeats_shop/core/constants/app_colors.dart';
 import 'package:quickeats_shop/models/organisation.dart';
 import 'package:quickeats_shop/viewmodels/auth_viewmodel.dart';
 import 'package:quickeats_shop/views/widgets/org_codes_field.dart';
+import 'package:quickeats_shop/views/widgets/password_policy.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -86,14 +87,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
+                      onChanged: (_) => setState(() {}),
                       decoration: _inputDecoration('Password', Icons.lock_outline).copyWith(
                         suffixIcon: IconButton(
                           icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: AppColors.textMuted),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
                       ),
-                      validator: (v) => v == null || v.length < 6 ? 'At least 6 characters' : null,
+                      validator: (v) => PasswordPolicy.validate(v ?? '', email: _emailController.text, name: _nameController.text),
                     ),
+                    PasswordRequirements(password: _passwordController.text),
 
                     if (vm.error != null)
                       Padding(

@@ -9,6 +9,7 @@ import 'package:quickeats_shop/views/orders/order_detail_screen.dart';
 import 'package:quickeats_shop/views/menu/menu_management_screen.dart';
 import 'package:quickeats_shop/views/menu/add_menu_item_screen.dart';
 import 'package:quickeats_shop/views/shell_screen.dart';
+import 'package:quickeats_shop/views/earnings/earnings_screen.dart';
 import 'package:quickeats_shop/views/settings/settings_screen.dart';
 
 final appRouter = GoRouter(
@@ -34,6 +35,7 @@ final appRouter = GoRouter(
         ),
         GoRoute(path: '/menu', builder: (_, __) => const MenuManagementScreen()),
         GoRoute(path: '/menu/add', builder: (_, __) => const AddMenuItemScreen()),
+        GoRoute(path: '/earnings', builder: (_, __) => const EarningsScreen()),
         GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       ],
     ),

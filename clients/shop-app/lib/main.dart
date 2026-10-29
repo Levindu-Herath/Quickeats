@@ -7,6 +7,7 @@ import 'package:quickeats_shop/services/auth_service.dart';
 import 'package:quickeats_shop/viewmodels/auth_viewmodel.dart';
 import 'package:quickeats_shop/viewmodels/order_queue_viewmodel.dart';
 import 'package:quickeats_shop/viewmodels/menu_viewmodel.dart';
+import 'package:quickeats_shop/viewmodels/earnings_viewmodel.dart';
 import 'package:quickeats_shop/viewmodels/settings_viewmodel.dart';
 
 void main() async {
@@ -26,6 +27,7 @@ class QuickEatsShopApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => getIt<AuthViewModel>()),
         ChangeNotifierProvider(create: (_) => getIt<OrderQueueViewModel>()),
         ChangeNotifierProvider(create: (_) => getIt<MenuViewModel>()),
+        ChangeNotifierProvider(create: (_) => getIt<EarningsViewModel>()),
         ChangeNotifierProvider(create: (_) => getIt<SettingsViewModel>()),
       ],
       child: MaterialApp.router(

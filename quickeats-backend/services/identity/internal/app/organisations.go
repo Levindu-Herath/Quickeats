@@ -133,8 +133,8 @@ func EnsureAdmin(ctx context.Context, userRepo port.UserRepository, email, passw
 		}
 		return nil
 	}
-	if len(password) < 8 {
-		return fmt.Errorf("ADMIN_PASSWORD must be at least 8 characters")
+	if err := domain.ValidatePassword(password, email, "Administrator"); err != nil {
+		return fmt.Errorf("ADMIN_PASSWORD is too weak: %w", err)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {

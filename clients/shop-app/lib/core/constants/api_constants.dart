@@ -36,5 +36,5 @@ class ApiConstants {
   static String updateOrderStatus(String id) => '/api/v1/orders/$id/status';
   static String rejectOrder(String id) => '/api/v1/orders/$id/reject';
 
-  static String shopSettlements(String shopId) => '/api/v1/shops/$shopId/settlements';
+  static String shopEarnings(String shopId) => '/api/v1/shops/$shopId/earnings';
 }
