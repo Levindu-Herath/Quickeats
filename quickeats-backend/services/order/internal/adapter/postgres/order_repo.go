@@ -71,7 +71,9 @@ func (r *OrderRepo) ListByShop(ctx context.Context, shopID string, limit int, cu
 	rows, err := r.db.Query(ctx, query, shopID, limit)
 	if err != nil { return nil, err }
 	defer rows.Close()
-	return scanOrders(rows)
+	orders, err := scanOrders(rows)
+	if err != nil { return nil, err }
+	return orders, r.loadItems(ctx, orders)
 }
 
 func (r *OrderRepo) ListByCustomer(ctx context.Context, customerID string, limit int, cursor string) ([]*domain.Order, error) {
@@ -80,7 +82,32 @@ func (r *OrderRepo) ListByCustomer(ctx context.Context, customerID string, limit
 		 FROM orders WHERE customer_id=$1 ORDER BY created_at DESC LIMIT $2`, customerID, limit)
 	if err != nil { return nil, err }
 	defer rows.Close()
-	return scanOrders(rows)
+	orders, err := scanOrders(rows)
+	if err != nil { return nil, err }
+	return orders, r.loadItems(ctx, orders)
+}
+
+// loadItems fills in each order's line items with one query for the whole list.
+func (r *OrderRepo) loadItems(ctx context.Context, orders []*domain.Order) error {
+	if len(orders) == 0 { return nil }
+	byID := make(map[string]*domain.Order, len(orders))
+	ids := make([]string, len(orders))
+	for i, o := range orders {
+		byID[o.ID] = o
+		ids[i] = o.ID
+	}
+	rows, err := r.db.Query(ctx,
+		`SELECT id,order_id,menu_item_id,item_name,quantity,unit_price,subtotal FROM order_items WHERE order_id = ANY($1)`, ids)
+	if err != nil { return fmt.Errorf("load order items: %w", err) }
+	defer rows.Close()
+	for rows.Next() {
+		var item domain.OrderItem
+		if err := rows.Scan(&item.ID, &item.OrderID, &item.MenuItemID, &item.ItemName, &item.Quantity, &item.UnitPrice, &item.Subtotal); err != nil {
+			return err
+		}
+		if o := byID[item.OrderID]; o != nil { o.Items = append(o.Items, item) }
+	}
+	return rows.Err()
 }
 
 func (r *OrderRepo) FindTimedOutOrders(ctx context.Context, status domain.OrderStatus, olderThanMinutes int) ([]*domain.Order, error) {
