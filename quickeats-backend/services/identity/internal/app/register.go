@@ -19,22 +19,27 @@ type RegisterRequest struct {
 }
 
 type RegisterUseCase struct {
-	userRepo port.UserRepository
-	orgRepo  port.OrganisationRepository
+	userRepo  port.UserRepository
+	orgRepo   port.OrganisationRepository
+	employees port.EmployeeListRepository
 }
 
-func NewRegisterUseCase(userRepo port.UserRepository, orgRepo port.OrganisationRepository) *RegisterUseCase {
-	return &RegisterUseCase{userRepo: userRepo, orgRepo: orgRepo}
+func NewRegisterUseCase(userRepo port.UserRepository, orgRepo port.OrganisationRepository, employees port.EmployeeListRepository) *RegisterUseCase {
+	return &RegisterUseCase{userRepo: userRepo, orgRepo: orgRepo, employees: employees}
 }
 
 // Execute signs up a customer. The organisation code must exist and the email must be
 // on one of the organisation's email domains, which is what ties a customer to it.
+// If the organisation keeps an employee list, the email must also be on that list.
 func (uc *RegisterUseCase) Execute(ctx context.Context, req RegisterRequest) (*domain.User, error) {
 	org, err := findOrg(ctx, uc.orgRepo, req.OrganisationSlug)
 	if err != nil {
 		return nil, err
 	}
 	if err := verifyMember(org, req); err != nil {
+		return nil, err
+	}
+	if err := checkEmployeeList(ctx, uc.employees, org, req.Email); err != nil {
 		return nil, err
 	}
 

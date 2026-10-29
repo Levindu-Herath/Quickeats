@@ -12,10 +12,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/quickeats/pkg/config"
-	"github.com/quickeats/services/identity/internal/adapter/jwt"
-	pgRepo "github.com/quickeats/services/identity/internal/adapter/postgres"
 	"github.com/quickeats/services/identity/internal/adapter/gateway"
 	httpAdapter "github.com/quickeats/services/identity/internal/adapter/http"
+	"github.com/quickeats/services/identity/internal/adapter/jwt"
+	pgRepo "github.com/quickeats/services/identity/internal/adapter/postgres"
 	"github.com/quickeats/services/identity/internal/app"
 )
 
@@ -39,6 +39,7 @@ func main() {
 	// Repositories
 	userRepo := pgRepo.NewUserRepo(pool)
 	orgRepo := pgRepo.NewOrgRepo(pool)
+	employeeRepo := pgRepo.NewEmployeeListRepo(pool)
 
 	// Token issuer
 	tokenIssuer := jwt.NewIssuer(cfg.JWTSecret, cfg.JWTExpiry, cfg.JWTRefreshExpiry)
@@ -51,15 +52,16 @@ func main() {
 
 	// Use cases
 	catalog := gateway.NewCatalogClient(cfg.CatalogServiceURL)
-	registerUC := app.NewRegisterUseCase(userRepo, orgRepo)
+	registerUC := app.NewRegisterUseCase(userRepo, orgRepo, employeeRepo)
 	registerShopUC := app.NewRegisterShopUseCase(userRepo, orgRepo, catalog)
 	loginUC := app.NewLoginUseCase(userRepo, tokenIssuer)
 	profileUC := app.NewProfileUseCase(userRepo, orgRepo, catalog)
-	orgsUC := app.NewOrganisationsUseCase(orgRepo)
+	orgsUC := app.NewOrganisationsUseCase(orgRepo, employeeRepo)
+	employeesUC := app.NewEmployeeListUseCase(orgRepo, employeeRepo)
 
 	// HTTP handlers
 	authHandler := httpAdapter.NewAuthHandler(registerUC, registerShopUC, loginUC, tokenIssuer, userRepo)
-	orgHandler := httpAdapter.NewOrgHandler(orgsUC)
+	orgHandler := httpAdapter.NewOrgHandler(orgsUC, employeesUC)
 	profileHandler := httpAdapter.NewProfileHandler(profileUC)
 
 	// Router

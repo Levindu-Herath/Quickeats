@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, Organisation } from './api';
+import ConfirmDialog from './ConfirmDialog';
+import EmployeesDialog from './EmployeesDialog';
 import OrgForm from './OrgForm';
 
 export default function OrganisationsPage({ onSignOut }: { onSignOut: () => void }) {
@@ -7,6 +9,8 @@ export default function OrganisationsPage({ onSignOut }: { onSignOut: () => void
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<Organisation | 'new' | null>(null);
+  const [employeesOf, setEmployeesOf] = useState<Organisation | null>(null);
+  const [deleting, setDeleting] = useState<Organisation | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -55,8 +59,8 @@ export default function OrganisationsPage({ onSignOut }: { onSignOut: () => void
           <div>
             <h1>Organisations</h1>
             <p className="muted">
-              Customers register with an organisation code and an email on one of its domains. Merchants pick one or
-              more codes for their shop.
+              Customers register with an organisation code and an email on one of its domains. Upload an employee list
+              to allow only those emails. Merchants pick one or more codes for their shop.
             </p>
           </div>
           <button className="btn primary" onClick={() => setEditing('new')}>
@@ -106,6 +110,7 @@ export default function OrganisationsPage({ onSignOut }: { onSignOut: () => void
                   <th>Name</th>
                   <th>Code</th>
                   <th>Email domains</th>
+                  <th>Employee list</th>
                   <th className="num">Members</th>
                   <th aria-label="Actions" />
                 </tr>
@@ -126,13 +131,39 @@ export default function OrganisationsPage({ onSignOut }: { onSignOut: () => void
                         ))}
                       </div>
                     </td>
+                    <td data-label="Employee list">
+                      {o.employeeCount ? (
+                        <span>
+                          {o.employeeCount} {o.employeeCount === 1 ? 'email' : 'emails'}
+                        </span>
+                      ) : (
+                        <span className="muted">Domain only</span>
+                      )}
+                    </td>
                     <td data-label="Members" className="num">
                       {o.memberCount ?? 0}
                     </td>
                     <td className="actions">
-                      <button className="btn small" onClick={() => setEditing(o)}>
-                        Edit
-                      </button>
+                      <div className="row-actions">
+                        <button className="btn small" onClick={() => setEmployeesOf(o)}>
+                          Employees
+                        </button>
+                        <button className="btn small" onClick={() => setEditing(o)}>
+                          Edit
+                        </button>
+                        <button
+                          className="btn small danger-outline"
+                          onClick={() => setDeleting(o)}
+                          disabled={(o.memberCount ?? 0) > 0}
+                          title={
+                            (o.memberCount ?? 0) > 0
+                              ? `${o.memberCount} ${o.memberCount === 1 ? 'account uses' : 'accounts use'} this organisation`
+                              : undefined
+                          }
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -152,6 +183,28 @@ export default function OrganisationsPage({ onSignOut }: { onSignOut: () => void
             load();
           }}
         />
+      )}
+
+      {employeesOf && (
+        <EmployeesDialog org={employeesOf} onChanged={load} onClose={() => setEmployeesOf(null)} />
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title={`Delete ${deleting.name}?`}
+          confirmLabel="Delete organisation"
+          onClose={() => setDeleting(null)}
+          onConfirm={async () => {
+            await api.deleteOrganisation(deleting.id);
+            setDeleting(null);
+            setNotice(`Deleted ${deleting.name}`);
+            load();
+          }}
+        >
+          The code <code className="code">{deleting.slug}</code>
+          {deleting.employeeCount ? ` and its ${deleting.employeeCount} listed employee emails` : ''} will be removed.
+          This can't be undone.
+        </ConfirmDialog>
       )}
 
       {notice && (
