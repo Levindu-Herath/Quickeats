@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars (git-ignored) and fill in from the describe commands in README.md.
+# admin_cidr is NOT set here: pass your current IP with -var on each run.
+
+instance_id                = "i-xxxxxxxxxxxxxxxxx"
+ami_id                     = "ami-xxxxxxxxxxxxxxxxx"
+subnet_id                  = "subnet-xxxxxxxxxxxxxxxxx"
+key_name                   = "your-key-pair-name"
+security_group_id          = "sg-xxxxxxxxxxxxxxxxx"
+security_group_description = "exact description from AWS"
+eip_allocation_id          = "eipalloc-xxxxxxxxxxxxxxxxx"
+
+alert_email        = "you@example.com"
+monthly_budget_usd = 25

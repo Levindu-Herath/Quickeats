@@ -6,6 +6,13 @@
 *.pem
 *.key
 
+# Terraform: state lives in S3; tfvars holds account IDs and an email address
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+
 # OS
 .DS_Store
 Thumbs.db
