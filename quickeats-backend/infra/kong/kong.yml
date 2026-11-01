@@ -69,6 +69,14 @@ services:
         strip_path: false
 
 plugins:
+  # Request count, status codes and latency per service. Served on Kong's status
+  # listener (:8100, internal only) at /metrics, which Prometheus scrapes.
+  - name: prometheus
+    config:
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
   - name: rate-limiting
     config:
       minute: 60

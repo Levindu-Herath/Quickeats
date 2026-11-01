@@ -195,6 +195,8 @@ services:
       KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
       KONG_PROXY_LISTEN: "0.0.0.0:8000"
       KONG_ADMIN_LISTEN: "off"
+      # /metrics for Prometheus; no host port, so only reachable inside the compose network
+      KONG_STATUS_LISTEN: "0.0.0.0:8100"
     volumes:
       - ./infra/kong/kong.yml:/etc/kong/kong.yml:ro
     depends_on:
@@ -321,6 +323,78 @@ services:
       timeout: 3s
       retries: 3
 
+  # ---------------------------------------------------------------------------
+  # Monitoring. Prometheus and Grafana bind to 127.0.0.1 only: reach them through
+  # an SSH tunnel, no security group change. The deploy health check doesn't wait
+  # on these, so a monitoring problem never rolls back a release.
+  # ---------------------------------------------------------------------------
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Whichever limit is hit first; keeps the 30 GB disk safe
+      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.size=1GB
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./infra/prometheus:/etc/prometheus:ro
+      - promdata:/prometheus
+    mem_limit: 256m
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env.prod}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      # Datasource and dashboard come from the repo, so a fresh volume is ready to use
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    depends_on:
+      - prometheus
+    mem_limit: 256m
+
+  # Host CPU, memory, disk and swap
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command: ["--path.rootfs=/host"]
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    mem_limit: 64m
+
+  # CPU and memory per container. Metrics that the dashboards don't use are off to
+  # keep its own CPU and memory use low.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=30s
+      - --store_container_labels=false
+      - --disable_metrics=percpu,sched,tcp,udp,diskIO,hugetlb,referenced_memory,cpu_topology,resctrl,advtcp,memory_numa
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    mem_limit: 160m
+
 volumes:
   identity-pgdata:
   catalog-pgdata:
@@ -328,3 +402,5 @@ volumes:
   payment-pgdata:
   kafkadata:
   redisdata:
+  promdata:
+  grafanadata:

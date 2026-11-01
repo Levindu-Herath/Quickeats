@@ -1,0 +1,60 @@
+groups:
+  - name: quickeats
+    rules:
+      - alert: ScrapeTargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is not answering Prometheus scrapes"
+
+      # Kong answers 502/503 when a service is down, so this also catches crashed services
+      - alert: HighErrorRate
+        expr: |
+          sum by (service) (rate(kong_http_requests_total{code=~"5.."}[5m]))
+            / sum by (service) (rate(kong_http_requests_total[5m])) > 0.05
+          and sum by (service) (rate(kong_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.service }}: {{ $value | humanizePercentage }} of requests fail with 5xx"
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, sum by (service, le) (rate(kong_request_latency_ms_bucket[5m]))) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }}: p95 latency is {{ $value | humanize }} ms"
+
+      # The Postgres containers have a 256 MB cap; at the cap the kernel kills them
+      - alert: ContainerNearMemoryLimit
+        expr: |
+          container_memory_working_set_bytes{name!=""}
+            / (container_spec_memory_limit_bytes{name!=""} > 0) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.name }} uses {{ $value | humanizePercentage }} of its memory limit"
+
+      - alert: HostLowMemory
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Only {{ $value | humanizePercentage }} of host memory is available"
+
+      - alert: DiskAlmostFull
+        expr: |
+          1 - node_filesystem_avail_bytes{mountpoint="/", fstype!="rootfs"}
+            / node_filesystem_size_bytes{mountpoint="/", fstype!="rootfs"} > 0.80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Root disk is {{ $value | humanizePercentage }} full"

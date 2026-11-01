@@ -23,7 +23,8 @@ done
 echo "==> Starting stack on $TAG"
 dc up -d --remove-orphans
 
-# Kong only reads kong.yml at startup, and compose doesn't notice a changed
-# mounted file, so restart it to pick up route changes from this commit.
-echo "==> Reloading Kong routes"
-dc restart kong
+# Kong, Prometheus and Grafana only read their mounted config at startup, and compose
+# doesn't notice a changed mounted file, so restart them to pick up this commit's
+# routes, scrape targets, alert rules and dashboards.
+echo "==> Reloading Kong routes and monitoring config"
+dc restart kong prometheus grafana
