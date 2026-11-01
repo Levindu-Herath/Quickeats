@@ -1,3 +1,14 @@
+# GitHub publishes the address ranges its webhooks come from; Jenkins needs them
+# on 8080 or pushes to main never trigger a build.
+data "http" "github_meta" {
+  url             = "https://api.github.com/meta"
+  request_headers = { Accept = "application/vnd.github+json" }
+}
+
+locals {
+  github_hook_cidrs = jsondecode(data.http.github_meta.response_body).hooks
+}
+
 resource "aws_security_group" "server" {
   name        = "quickeats-sg"
   description = var.security_group_description
@@ -32,6 +43,16 @@ resource "aws_security_group" "server" {
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = [var.admin_cidr]
+  }
+
+  # Webhook deliveries to /github-webhook/ (verified with the webhook secret)
+  ingress {
+    description      = "GitHub webhooks to Jenkins"
+    from_port        = 8080
+    to_port          = 8080
+    protocol         = "tcp"
+    cidr_blocks      = [for c in local.github_hook_cidrs : c if !strcontains(c, ":")]
+    ipv6_cidr_blocks = [for c in local.github_hook_cidrs : c if strcontains(c, ":")]
   }
 
   egress {
