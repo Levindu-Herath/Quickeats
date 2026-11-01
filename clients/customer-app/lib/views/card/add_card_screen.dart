@@ -57,7 +57,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
       appBar: AppBar(title: const Text('Add Card', style: TextStyle(fontWeight: FontWeight.w700)), backgroundColor: AppColors.white, elevation: 0),
       body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         CardVisual(brand: brand, number: _number.text, holder: _holder.text, expiry: _expiry.text),
-        const SizedBox(height: 24),
+        const SizedBox(height: 25),
 
         TextFormField(
           controller: _number,
