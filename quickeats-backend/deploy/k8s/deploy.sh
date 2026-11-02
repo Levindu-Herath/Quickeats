@@ -55,7 +55,7 @@ if [ -n "$REGISTRY" ]; then
   echo "$REGISTRY" | docker-credential-ecr-login get | python3 -c '
 import base64, json, sys
 c = json.load(sys.stdin)
-auth = base64.b64encode(f"{c[\"Username\"]}:{c[\"Secret\"]}".encode()).decode()
+auth = base64.b64encode((c["Username"] + ":" + c["Secret"]).encode()).decode()
 print(json.dumps({"auths": {c["ServerURL"]: {"auth": auth}}}))' > "$tmp/dockerconfig.json"
   kubectl -n "$NS" create secret generic ecr-pull --type=kubernetes.io/dockerconfigjson \
     --from-file=.dockerconfigjson="$tmp/dockerconfig.json" --dry-run=client -o yaml | kubectl apply -f -
