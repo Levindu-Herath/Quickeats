@@ -1,6 +1,8 @@
 resource "aws_instance" "server" {
   ami                    = var.ami_id
-  instance_type          = "c7i-flex.large"
+  # 2 vCPU / 8 GiB: k3s, Kafka, four Postgres servers, monitoring and Jenkins builds.
+  # Changing the type stops and starts the instance (the Elastic IP stays).
+  instance_type          = "m7i-flex.large"
   subnet_id              = var.subnet_id
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.server.id]

@@ -1,0 +1,105 @@
+# Live shop notifications over WebSocket
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification
+spec:
+  selector:
+    app.kubernetes.io/name: notification
+  ports:
+    - name: http
+      port: 8085
+      targetPort: http
+    - name: ws
+      port: 8086
+      targetPort: ws
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  # Zero downtime: the new pod must pass its readiness probe before the old one stops
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notification
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: notification
+        app.kubernetes.io/component: api
+    spec:
+      enableServiceLinks: false
+      imagePullSecrets:
+        - name: ecr-pull
+      initContainers:
+        - name: wait-for-deps
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until nc -z kafka 29092; do echo waiting for kafka; sleep 2; done"]
+      containers:
+        - name: notification
+          image: quickeats-notification
+          ports:
+            - name: http
+              containerPort: 8085
+            - name: ws
+              containerPort: 8086
+          env:
+            - name: REDIS_URL
+              value: "redis:6379"
+            - name: KAFKA_BROKERS
+              value: "kafka:29092"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: quickeats-env
+                  key: JWT_SECRET
+            - name: HTTP_PORT
+              value: "8085"
+            - name: WS_PORT
+              value: "8086"
+            - name: ORDER_SERVICE_URL
+              value: "http://order:8083"
+          # Keep serving for 5 s after removal from the Service, until Kong and kube-proxy
+          # have stopped sending new requests here (no dropped requests during rollouts)
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          # Up to 150 s to start (e.g. waiting for Kafka) before liveness checks begin
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

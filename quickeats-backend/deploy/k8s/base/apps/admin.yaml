@@ -1,0 +1,65 @@
+# React admin dashboard (static files from nginx), served by Kong at /admin
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin
+spec:
+  selector:
+    app.kubernetes.io/name: admin
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: admin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: admin
+        app.kubernetes.io/component: frontend
+    spec:
+      enableServiceLinks: false
+      imagePullSecrets:
+        - name: ecr-pull
+      containers:
+        - name: admin
+          image: quickeats-admin
+          ports:
+            - name: http
+              containerPort: 80
+          # Keep serving for 5 s after removal from the Service (no dropped requests during rollouts)
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi

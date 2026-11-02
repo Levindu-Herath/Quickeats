@@ -507,7 +507,7 @@
     },
     {
       "type": "row",
-      "title": "Containers (cAdvisor)",
+      "title": "Kubernetes",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -517,6 +517,218 @@
       },
       "panels": [],
       "id": 12
+    },
+    {
+      "type": "stat",
+      "title": "Pods not ready",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 31
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(kube_pod_status_ready{namespace=~\"quickeats|monitoring\", condition=\"false\"}) or vector(0)",
+          "refId": "A"
+        }
+      ],
+      "id": 13
+    },
+    {
+      "type": "stat",
+      "title": "Container restarts (1h)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 31
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=~\"quickeats|monitoring\"}[1h])) or vector(0)",
+          "refId": "A"
+        }
+      ],
+      "id": 14
+    },
+    {
+      "type": "stat",
+      "title": "Deployments degraded",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 31
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(kube_deployment_status_replicas_available < kube_deployment_spec_replicas) or vector(0)",
+          "refId": "A"
+        }
+      ],
+      "id": 15
+    },
+    {
+      "type": "stat",
+      "title": "Running pods",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 31
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(kube_pod_status_phase{namespace=~\"quickeats|monitoring\", phase=\"Running\"} == 1)",
+          "refId": "A"
+        }
+      ],
+      "id": 16
     },
     {
       "type": "timeseries",
@@ -529,7 +741,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 31
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -561,12 +773,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (name) (container_memory_working_set_bytes{name=~\"quickeats-.+\"})",
-          "legendFormat": "{{name}}",
+          "expr": "sum by (container) (container_memory_working_set_bytes{namespace=~\"quickeats|monitoring\", container!=\"\"})",
+          "legendFormat": "{{container}}",
           "refId": "A"
         }
       ],
-      "id": 13
+      "id": 17
     },
     {
       "type": "timeseries",
@@ -579,7 +791,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 31
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -611,13 +823,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name=~\"quickeats-.+\"}[2m]))",
-          "legendFormat": "{{name}}",
+          "expr": "sum by (container) (rate(container_cpu_usage_seconds_total{namespace=~\"quickeats|monitoring\", container!=\"\"}[2m]))",
+          "legendFormat": "{{container}}",
           "refId": "A"
         }
       ],
       "description": "1.0 = one full vCPU; the instance has 2",
-      "id": 14
+      "id": 18
     },
     {
       "type": "timeseries",
@@ -628,9 +840,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
-        "y": 39
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -663,13 +875,63 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "container_memory_working_set_bytes{name=~\"quickeats-.+\"} / (container_spec_memory_limit_bytes{name=~\"quickeats-.+\"} > 0)",
-          "legendFormat": "{{name}}",
+          "expr": "max by (pod) (container_memory_working_set_bytes{namespace=~\"quickeats|monitoring\", container!=\"\"}) / max by (pod) (container_spec_memory_limit_bytes{namespace=~\"quickeats|monitoring\", container!=\"\"} > 0)",
+          "legendFormat": "{{pod}}",
           "refId": "A"
         }
       ],
-      "description": "Only containers with mem_limit; at 100% the kernel kills the container",
-      "id": 15
+      "description": "Only containers with a memory limit; at 100% the kernel kills the container",
+      "id": 19
+    },
+    {
+      "type": "timeseries",
+      "title": "Restarts (increase over 1h)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (pod) (increase(kube_pod_container_status_restarts_total{namespace=~\"quickeats|monitoring\"}[1h])) > 0",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "id": 20
     },
     {
       "type": "row",
@@ -679,10 +941,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 47
+        "y": 51
       },
       "panels": [],
-      "id": 16
+      "id": 21
     },
     {
       "type": "stat",
@@ -695,7 +957,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 48
+        "y": 52
       },
       "fieldConfig": {
         "defaults": {
@@ -739,7 +1001,7 @@
           "refId": "A"
         }
       ],
-      "id": 17
+      "id": 22
     },
     {
       "type": "stat",
@@ -752,7 +1014,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 48
+        "y": 52
       },
       "fieldConfig": {
         "defaults": {
@@ -796,7 +1058,7 @@
           "refId": "A"
         }
       ],
-      "id": 18
+      "id": 23
     },
     {
       "type": "stat",
@@ -809,7 +1071,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 48
+        "y": 52
       },
       "fieldConfig": {
         "defaults": {
@@ -853,7 +1115,7 @@
           "refId": "A"
         }
       ],
-      "id": 19
+      "id": 24
     },
     {
       "type": "stat",
@@ -866,7 +1128,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 48
+        "y": 52
       },
       "fieldConfig": {
         "defaults": {
@@ -910,7 +1172,7 @@
           "refId": "A"
         }
       ],
-      "id": 20
+      "id": 25
     },
     {
       "type": "timeseries",
@@ -923,7 +1185,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {
@@ -969,7 +1231,7 @@
           "refId": "B"
         }
       ],
-      "id": 21
+      "id": 26
     },
     {
       "type": "timeseries",
@@ -982,7 +1244,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {
@@ -1037,7 +1299,7 @@
           "refId": "C"
         }
       ],
-      "id": 22
+      "id": 27
     }
   ],
   "templating": {

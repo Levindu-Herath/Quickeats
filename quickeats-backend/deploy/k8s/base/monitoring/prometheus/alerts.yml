@@ -7,7 +7,7 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "{{ $labels.job }} is not answering Prometheus scrapes"
+          summary: "{{ $labels.job }} {{ $labels.pod }} is not answering Prometheus scrapes"
 
       # Kong answers 502/503 when a service is down, so this also catches crashed services
       - alert: HighErrorRate
@@ -30,17 +30,45 @@ groups:
         annotations:
           summary: "{{ $labels.service }}: p95 latency is {{ $value | humanize }} ms"
 
-      # The Postgres containers have a 256 MB cap; at the cap the kernel kills them
+  - name: kubernetes
+    rules:
+      - alert: PodCrashLooping
+        expr: increase(kube_pod_container_status_restarts_total[15m]) > 2
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.namespace }}/{{ $labels.pod }} ({{ $labels.container }}) restarted {{ $value | humanize }} times in 15 min"
+
+      - alert: DeploymentUnavailable
+        expr: kube_deployment_status_replicas_available < kube_deployment_spec_replicas
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.namespace }}/{{ $labels.deployment }} has fewer ready pods than requested"
+
+      - alert: StatefulSetUnavailable
+        expr: kube_statefulset_status_replicas_ready < kube_statefulset_replicas
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.namespace }}/{{ $labels.statefulset }} has fewer ready pods than requested"
+
+      # The Postgres pods are capped at 256 MiB; at the limit the kernel kills them
       - alert: ContainerNearMemoryLimit
         expr: |
-          container_memory_working_set_bytes{name!=""}
-            / (container_spec_memory_limit_bytes{name!=""} > 0) > 0.9
+          max by (namespace, pod, container) (container_memory_working_set_bytes{container!=""})
+            / max by (namespace, pod, container) (container_spec_memory_limit_bytes{container!=""} > 0) > 0.9
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.name }} uses {{ $value | humanizePercentage }} of its memory limit"
+          summary: "{{ $labels.namespace }}/{{ $labels.pod }} ({{ $labels.container }}) uses {{ $value | humanizePercentage }} of its memory limit"
 
+  - name: host
+    rules:
       - alert: HostLowMemory
         expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
         for: 10m

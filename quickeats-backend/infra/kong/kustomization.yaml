@@ -1,0 +1,8 @@
+# Lets the Kubernetes manifests (deploy/k8s/base/gateway) load kong.yml as a ConfigMap.
+# Docker compose ignores this file.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+configMapGenerator:
+  - name: kong-config
+    files:
+      - kong.yml

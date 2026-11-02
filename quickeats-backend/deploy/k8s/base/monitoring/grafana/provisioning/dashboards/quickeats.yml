@@ -7,4 +7,4 @@ providers:
     # Dashboards are edited in the repo; edits in the UI are lost on redeploy
     allowUiUpdates: false
     options:
-      path: /var/lib/grafana/dashboards
+      path: /etc/grafana/dashboards
