@@ -25,5 +25,16 @@ for user in ubuntu jenkins; do
   sudo chmod 600 "$home/.kube/config"
 done
 
+# k3s's kubectl reads the root-only /etc/rancher/k3s/k3s.yaml unless KUBECONFIG is set
+# (Jenkins sets it in the Jenkinsfile)
+grep -q 'KUBECONFIG=' ~/.bashrc || echo 'export KUBECONFIG="$HOME/.kube/config"' >> ~/.bashrc
+export KUBECONFIG="$HOME/.kube/config"
+
+# The node registers a few seconds after k3s starts; `wait` fails if it doesn't exist yet
+for _ in $(seq 60); do
+  sudo k3s kubectl get nodes -o name 2>/dev/null | grep -q . && break
+  sleep 2
+done
 sudo k3s kubectl wait --for=condition=Ready node --all --timeout=120s
 kubectl get nodes -o wide
+sudo -u jenkins env KUBECONFIG="$(getent passwd jenkins | cut -d: -f6)/.kube/config" kubectl get nodes

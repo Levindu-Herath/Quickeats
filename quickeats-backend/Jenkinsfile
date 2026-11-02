@@ -14,6 +14,8 @@ pipeline {
         ECR_REGISTRY = '256130491262.dkr.ecr.eu-north-1.amazonaws.com'
         SERVICES     = 'identity catalog order payment notification'
         CGO_ENABLED  = '0'
+        // k3s's kubectl ignores ~/.kube/config unless KUBECONFIG points at it
+        KUBECONFIG   = "${env.HOME}/.kube/config"
     }
 
     options {
