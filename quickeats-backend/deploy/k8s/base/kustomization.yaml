@@ -1,0 +1,18 @@
+# QuickEats on Kubernetes (k3s). Applied by ../deploy.sh, which adds the image
+# registry and release tag on top of this base.
+#
+#   data/        Postgres per service, Redis, Kafka          (namespace quickeats)
+#   apps/        the five Go services and the admin dashboard (namespace quickeats)
+#   gateway/     Kong, the only public entry point (:80)     (namespace quickeats)
+#   monitoring/  Prometheus, Grafana, exporters               (namespace monitoring)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespaces.yaml
+  - data
+  - apps
+  - gateway
+  - monitoring
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: quickeats

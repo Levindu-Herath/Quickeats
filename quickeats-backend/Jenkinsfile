@@ -1,6 +1,7 @@
 // QuickEats backend CI/CD.
-//   Checkout → Build & test → Docker build → Push to ECR → Deploy → Health check
-// If Deploy or Health check fails, the previous release is redeployed.
+//   Checkout → Build & test → Docker build → Push to ECR → Deploy (k3s) → Smoke test
+// Deploy waits for every rolling update to finish; if it or the smoke test fails,
+// the previous release is redeployed.
 // Runs on the EC2 box; ECR access comes from the instance IAM role (no AWS keys).
 pipeline {
     agent any
@@ -13,7 +14,8 @@ pipeline {
         ECR_REGISTRY = '256130491262.dkr.ecr.eu-north-1.amazonaws.com'
         SERVICES     = 'identity catalog order payment notification'
         CGO_ENABLED  = '0'
-        DEPLOY_DIR   = '/opt/quickeats'   // stable home of the running stack
+        // k3s's kubectl ignores ~/.kube/config unless KUBECONFIG points at it
+        KUBECONFIG   = "${env.HOME}/.kube/config"
     }
 
     options {
@@ -77,40 +79,28 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    env.PREV_TAG = sh(script: 'cat "$DEPLOY_DIR/.current_tag" 2>/dev/null || true', returnStdout: true).trim()
+                    // The last release that passed its smoke test is recorded on the namespace
+                    env.PREV_TAG = sh(
+                        script: "kubectl get namespace quickeats -o jsonpath='{.metadata.annotations.quickeats\\.io/release}' 2>/dev/null || true",
+                        returnStdout: true).trim()
                     env.DEPLOY_STARTED = 'true'
                     echo "Deploying ${env.IMAGE_TAG} (previous: ${env.PREV_TAG ?: 'none'})"
                 }
                 dir('quickeats-backend') {
                     withCredentials([file(credentialsId: 'quickeats-env-prod', variable: 'ENV_PROD')]) {
-                        sh '''
-                            set -e
-                            # Secrets: strip Windows line endings, readable by jenkins only
-                            tr -d '\\r' < "$ENV_PROD" > "$DEPLOY_DIR/.env.prod"
-                            chmod 600 "$DEPLOY_DIR/.env.prod"
-
-                            # Files the stack mounts at runtime
-                            cp docker-compose.prod.yml "$DEPLOY_DIR/"
-                            rm -rf "$DEPLOY_DIR/infra" && cp -r infra "$DEPLOY_DIR/"
-                            for s in identity catalog order payment; do
-                                mkdir -p "$DEPLOY_DIR/services/$s"
-                                rm -rf "$DEPLOY_DIR/services/$s/migrations"
-                                cp -r "services/$s/migrations" "$DEPLOY_DIR/services/$s/"
-                            done
-                        '''
+                        sh 'bash deploy/k8s/deploy.sh "$IMAGE_TAG"'
                     }
-                    sh 'bash deploy/deploy.sh "$IMAGE_TAG"'
                 }
             }
         }
 
-        stage('Health check') {
+        stage('Smoke test') {
             steps {
                 dir('quickeats-backend') {
-                    sh 'bash deploy/healthcheck.sh'
+                    sh 'bash deploy/k8s/smoke-test.sh'
                 }
-                // Only a healthy release becomes the rollback target
-                sh 'echo "$IMAGE_TAG" > "$DEPLOY_DIR/.current_tag"'
+                // Only a release that passed becomes the rollback target
+                sh 'kubectl annotate namespace quickeats quickeats.io/release="$IMAGE_TAG" --overwrite'
             }
         }
     }
@@ -123,7 +113,9 @@ pipeline {
                 } else if (env.PREV_TAG) {
                     echo "Rolling back to ${env.PREV_TAG}"
                     dir('quickeats-backend') {
-                        sh 'bash deploy/deploy.sh "$PREV_TAG" && bash deploy/healthcheck.sh'
+                        withCredentials([file(credentialsId: 'quickeats-env-prod', variable: 'ENV_PROD')]) {
+                            sh 'bash deploy/k8s/deploy.sh "$PREV_TAG" && bash deploy/k8s/smoke-test.sh'
+                        }
                     }
                     echo "Rolled back to ${env.PREV_TAG}; ${env.IMAGE_TAG} was not kept."
                 } else {

@@ -1,4 +1,5 @@
-# Build context is quickeats-backend/; Dockerfiles only need pkg/ and services/.
+# Build context is quickeats-backend/; Dockerfiles need pkg/, services/ and the
+# SQL that the Kubernetes init containers run (migrations and infra/seed).
 
 # Secrets
 .env
@@ -14,11 +15,11 @@
 
 # Not needed inside images
 infra
+!infra/seed
 docker-compose*.yml
 Makefile
 **/*.md
 **/*_test.go
-**/migrations
 
 # Build output
 bin

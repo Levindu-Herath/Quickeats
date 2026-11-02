@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - prometheus.yaml
+  - grafana.yaml
+  - node-exporter.yaml
+  - kube-state-metrics.yaml
+# Config lives in plain files; the generated ConfigMap names carry a content hash,
+# so changing a file rolls the pod that mounts it.
+configMapGenerator:
+  - name: prometheus-config
+    files:
+      - prometheus/prometheus.yml
+      - prometheus/alerts.yml
+  - name: grafana-datasources
+    files:
+      - grafana/provisioning/datasources/prometheus.yml
+  - name: grafana-dashboard-providers
+    files:
+      - grafana/provisioning/dashboards/quickeats.yml
+  - name: grafana-dashboards
+    files:
+      - grafana/dashboards/quickeats-overview.json

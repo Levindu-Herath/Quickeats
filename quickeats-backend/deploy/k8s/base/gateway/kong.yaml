@@ -1,0 +1,100 @@
+# Kong API gateway (DB-less): the only thing reachable from outside the cluster.
+# Routes come from infra/kong/kong.yml, the same file local docker compose uses.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong
+spec:
+  # k3s ServiceLB binds this to port 80 on the node
+  type: LoadBalancer
+  # Keep the client's IP so per-client rate limiting works
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/name: kong
+  ports:
+    - name: proxy
+      port: 80
+      targetPort: proxy
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kong
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kong
+        app.kubernetes.io/component: gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8100"
+        prometheus.io/path: /metrics
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: kong
+          image: kong:3.6
+          env:
+            - name: KONG_DATABASE
+              value: "off"
+            - name: KONG_DECLARATIVE_CONFIG
+              value: /etc/kong/kong.yml
+            - name: KONG_PROXY_LISTEN
+              value: 0.0.0.0:8000
+            - name: KONG_ADMIN_LISTEN
+              value: "off"
+            # Default is one worker per visible CPU, which ignores the pod's memory
+            # limit (12 workers on a dev laptop got OOM-killed)
+            - name: KONG_NGINX_WORKER_PROCESSES
+              value: "2"
+            # /metrics and /status for Prometheus and the probes; not exposed by the Service
+            - name: KONG_STATUS_LISTEN
+              value: 0.0.0.0:8100
+          ports:
+            - name: proxy
+              containerPort: 8000
+            - name: status
+              containerPort: 8100
+          # Keep serving for 5 s after removal from the Service (no dropped requests during rollouts)
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          readinessProbe:
+            httpGet:
+              path: /status/ready
+              port: status
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: status
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kong
+              readOnly: true
+      volumes:
+        # Generated from infra/kong/kong.yml with a content hash in its name, so a
+        # route change rolls Kong automatically
+        - name: config
+          configMap:
+            name: kong-config

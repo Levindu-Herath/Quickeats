@@ -8,5 +8,8 @@ RUN CGO_ENABLED=0 go build -o /server ./cmd/server
 FROM alpine:3.19
 RUN apk --no-cache add ca-certificates
 COPY --from=builder /server /server
+# Schema migrations, copied out by the Kubernetes init containers
+COPY services/order/migrations /sql/migrations
+USER 65532:65532
 EXPOSE 8083
 CMD ["/server"]

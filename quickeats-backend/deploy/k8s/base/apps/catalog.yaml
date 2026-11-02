@@ -1,0 +1,145 @@
+# Shops, menu items and stock reservations
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog
+spec:
+  selector:
+    app.kubernetes.io/name: catalog
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  # Zero downtime: the new pod must pass its readiness probe before the old one stops
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: catalog
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: catalog
+        app.kubernetes.io/component: api
+    spec:
+      enableServiceLinks: false
+      imagePullSecrets:
+        - name: ecr-pull
+      initContainers:
+        - name: wait-for-deps
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -q -h catalog-db; do echo waiting for catalog-db; sleep 2; done; until nc -z kafka 29092; do echo waiting for kafka; sleep 2; done"]
+        # Then copy this release's SQL out of the image, migrate the service's own
+        # database and load the demo seed (idempotent). A failed migration keeps the
+        # old pods serving and fails the rollout.
+        - name: copy-sql
+          image: quickeats-catalog
+          command: ["sh", "-c", "cp -r /sql/. /work/"]
+          volumeMounts:
+            - name: sql
+              mountPath: /work
+        - name: migrate
+          image: migrate/migrate:v4.17.1
+          args: ["-path", "/work/migrations", "-database", "$(DATABASE_URL)", "up"]
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: quickeats-env
+                  key: CATALOG_DB_PASSWORD
+            - name: DATABASE_URL
+              value: "postgres://catalog:$(DB_PASSWORD)@catalog-db:5432/catalog_db?sslmode=disable"
+          volumeMounts:
+            - name: sql
+              mountPath: /work
+              readOnly: true
+        - name: seed
+          image: postgres:16-alpine
+          command: ["psql", "$(DATABASE_URL)", "-v", "ON_ERROR_STOP=1", "-q", "-f", "/work/seed.sql"]
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: quickeats-env
+                  key: CATALOG_DB_PASSWORD
+            - name: DATABASE_URL
+              value: "postgres://catalog:$(DB_PASSWORD)@catalog-db:5432/catalog_db?sslmode=disable"
+          volumeMounts:
+            - name: sql
+              mountPath: /work
+              readOnly: true
+      containers:
+        - name: catalog
+          image: quickeats-catalog
+          ports:
+            - name: http
+              containerPort: 8082
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: quickeats-env
+                  key: CATALOG_DB_PASSWORD
+            - name: DATABASE_URL
+              value: "postgres://catalog:$(DB_PASSWORD)@catalog-db:5432/catalog_db?sslmode=disable"
+            - name: REDIS_URL
+              value: "redis:6379"
+            - name: KAFKA_BROKERS
+              value: "kafka:29092"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: quickeats-env
+                  key: JWT_SECRET
+            - name: PORT
+              value: "8082"
+          # Keep serving for 5 s after removal from the Service, until Kong and kube-proxy
+          # have stopped sending new requests here (no dropped requests during rollouts)
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          # Up to 150 s to start (e.g. waiting for Kafka) before liveness checks begin
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: sql
+          emptyDir: {}
